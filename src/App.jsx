@@ -122,11 +122,14 @@ function buildPromptFromChat(chat, state) {
         .slice(0, 3)
         .join('; ');
 
-      return `- ${char.name}: identidad=${char.identity || 'sin identidad'}, objetivo=${char.goal || 'sin objetivo'}, estilo=${char.speechStyle || 'natural'}, vestimenta=${char.outfit || 'sin detalle'}, físico=${char.physical || 'sin detalle'}, memorias=${memories.map((m) => `${m.category}:${m.summary}`).join(', ') || 'ninguna'}, relaciones=${rels || 'ninguna'}`;
+      return `- ${char.name}: identidad=${char.identity || 'sin identidad'}, objetivo=${char.goal || 'sin objetivo'}, estilo=${char.speechStyle || 'natural'}, vestimenta=${char.outfit || 'sin detalle'}, fisico=${char.physical || 'sin detalle'}, recuerdos=${memories.map((m) => m.summary).join(' | ') || 'ninguno'}, relaciones=${rels || 'sin vínculos'}, secretos=${char.secret || 'sin secretos'}`;
     })
     .join('\n');
 
-  return `Eres un motor de roleplay narrativo. Responde solo desde el punto de vista del personaje activo. No hables en nombre del usuario ni describas lo que el jugador siente. Solo describe lo que el personaje hace, dice y percibe.\n\nEscena: ${chat.scene || 'Sin escena definida'}\nContexto grupal: ${chat.description || 'Sala de rol'}\nParticipantes:\n${lore}\n\nReglas: evitar la omnisciencia, hablar con tono coherente, responder con acción física entre asteriscos y diálogo entre comillas. Si no hay clave OpenRouter, responde con un texto breve y narrativo.\n`;
+  const universe = chat.universeId ? state.universes.find((u) => u.id === chat.universeId) : null;
+  const world = universe ? `\nUniverso: ${universe.name}. Lore: ${universe.lore || 'sin lore definido'}. Tono: ${universe.tone || 'sin tono definido'}.` : '';
+
+  return `Eres un motor de roleplay narrativo. Responde solo desde el punto de vista del personaje activo. No hables en nombre del usuario ni describas lo que el jugador siente. Solo describe lo que el personaje ve, dice y hace.\n\nEscena actual: ${chat.scene || 'sin escena'}\nDescripción: ${chat.description || 'sin descripción'}\nParticipantes:\n${lore || 'Sin participantes'}${world}\n\nReglas: la relación con cada personaje debe respetar su afinidad, estado, memoria y puntos ciegos; no inventes secretos ni hechos que no estén en el contexto; toda respuesta debe ser coherente con la continuidad reciente del chat.`;
 }
 
 const categoryPalette = {
@@ -279,7 +282,10 @@ function App() {
       openingDialogue: chatDraft.openingDialogue || '',
       type: chatDraft.type || 'group',
       messages: [],
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      nexusProcessedMessageCount: 0,
+      nexusRelationEventIds: [],
+      nexusLastMemoryUpdate: null
     };
 
     setStateWith((prev) => ({
@@ -365,13 +371,15 @@ function App() {
   };
 
   const clearMessagesInChat = (chatId) => {
+    if (!chatId || !window.confirm('¿Vaciar chat? La sala, sus participantes y su configuración se conservan.')) return;
     setStateWith((prev) => ({
       ...prev,
-      chats: prev.chats.map((chat) => chat.id === chatId ? { ...chat, messages: [] } : chat)
+      chats: prev.chats.map((chat) => chat.id === chatId ? { ...chat, messages: [], nexusProcessedMessageCount: 0, nexusRelationEventIds: [] } : chat)
     }));
   };
 
   const deleteChat = (chatId) => {
+    if (!chatId || !window.confirm('¿Eliminar sala? Esta acción no elimina personajes ni universos.')) return;
     setStateWith((prev) => ({
       ...prev,
       chats: prev.chats.filter((chat) => chat.id !== chatId),
@@ -380,6 +388,7 @@ function App() {
   };
 
   const deleteCharacter = (charId) => {
+    if (!window.confirm('¿Eliminar este personaje?')) return;
     setStateWith((prev) => ({
       ...prev,
       characters: prev.characters.filter((char) => char.id !== charId),
@@ -392,6 +401,7 @@ function App() {
   };
 
   const deleteUniverse = (uniId) => {
+    if (!window.confirm('¿Eliminar este universo y sus personajes asociados?')) return;
     setStateWith((prev) => ({
       ...prev,
       universes: prev.universes.filter((uni) => uni.id !== uniId),
@@ -402,6 +412,7 @@ function App() {
   };
 
   const resetAll = () => {
+    if (!window.confirm('¿Borrar todo el contenido de NEXUS?')) return;
     const empty = deepClone(emptyState);
     setState(empty);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(empty));
@@ -439,7 +450,7 @@ function App() {
         : k.includes('amor') || k.includes('querer')
           ? 'la palabra hace que su mirada se suavice'
           : 'la frase le deja un sabor amargo';
-      return `*${chosen.name} ${verbs[Math.floor(Math.random() * verbs.length)]}.* "${userMessage.slice(0, 120)}" ${tone}.`;
+      return `*${chosen.name} ${verbs[Math.floor(Math.random() * verbs.length)]}.* ${userMessage.slice(0, 120)} ${tone}.`;
     }
 
     try {
@@ -470,7 +481,7 @@ function App() {
       return json?.choices?.[0]?.message?.content || 'La respuesta no llegó.';
     } catch (error) {
       const chosen = participants[Math.floor(Math.random() * participants.length)];
-      return `*${chosen.name} se queda quieto, evaluando la frase.* "${userMessage.slice(0, 120)}"`;
+      return `*${chosen.name} se queda quieto, evaluando la frase.* ${userMessage.slice(0, 120)}`;
     }
   };
 
@@ -522,8 +533,10 @@ function App() {
         const source = state.characters.find((c) => c.id === charId);
         for (const targetId of chat.participants) {
           if (charId === targetId) continue;
-          const delta = /traición|miedo|odio|rival|enemigo|peligro|apoyo|confianza|alianza|amor|secreto/i.test(text) ? (text.includes('traición') || text.includes('odio') || text.includes('enemigo') ? -12 : 10) : 3;
-          updateRelation(charId, targetId, delta, `Interacción de sala: ${text.slice(0, 80)}`);
+          const delta = /traición|miedo|odio|rival|enemigo|peligro|apoyo|confianza|alianza|amor|secreto/i.test(text)
+            ? (text.includes('traición') || text.includes('odio') || text.includes('enemigo') || text.includes('miedo') || text.includes('peligro') ? -5 : 5)
+            : 0;
+          if (delta) updateRelation(charId, targetId, delta, `Interacción de sala: ${text.slice(0, 80)}`);
         }
       }
     }
@@ -654,7 +667,7 @@ function App() {
                 <small>{activeChat ? activeChat.scene || 'Sin escena' : 'Selecciona un chat'}</small>
               </div>
               <div className="header-actions">
-                {activeChat && <button className="button ghost" onClick={() => clearMessagesInChat(activeChat.id)}>Vaciar mensajes</button>}
+                {activeChat && <button className="button ghost" onClick={() => clearMessagesInChat(activeChat.id)}>Vaciar chat</button>}
                 {activeChat && <button className="button danger" onClick={() => deleteChat(activeChat.id)}>Eliminar sala</button>}
               </div>
             </div>
@@ -717,7 +730,7 @@ function App() {
                 <textarea value={messageDraft} onChange={(e) => setMessageDraft(e.target.value)} rows={4} placeholder="Escribe la escena o el diálogo..." />
                 <div className="quick-format-bar">
                   <button onClick={() => setMessageDraft((prev) => `${prev} *Se inclina hacia delante.*`)}>Acción</button>
-                  <button onClick={() => setMessageDraft((prev) => `${prev} "¿Qué quieres de mí?"`)}>Diálogo</button>
+                  <button onClick={() => setMessageDraft((prev) => `${prev} *¿Qué quieres de mí?*`)}>Diálogo</button>
                   <button onClick={() => setMessageDraft((prev) => `${prev} [Físico]`)}>Físico</button>
                 </div>
                 <button className="button primary" onClick={sendMessage}>Enviar</button>
@@ -805,7 +818,7 @@ function App() {
                 </label>
                 <label>
                   OpenRouter API Key
-                  <input type="password" value={state.settings.openRouterApiKey || ''} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, openRouterApiKey: e.target.value } }))} placeholder="sk-or-..." />
+                  <input type="password" value={state.settings.openRouterApiKey || ''} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, openRouterApiKey: e.target.value } }))} />
                 </label>
                 <label>
                   Modelo
