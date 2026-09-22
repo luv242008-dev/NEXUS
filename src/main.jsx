@@ -6,8 +6,10 @@ import './styles.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
-    <NexusEnhancements />
+    <>
+      <App />
+      <NexusEnhancements />
+    </>
   </React.StrictMode>
 );
 
