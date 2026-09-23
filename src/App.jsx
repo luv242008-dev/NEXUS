@@ -122,7 +122,7 @@ function buildPromptFromChat(chat, state) {
         .slice(0, 3)
         .join('; ');
 
-      return `- ${char.name}: identidad=${char.identity || 'sin identidad'}, objetivo=${char.goal || 'sin objetivo'}, estilo=${char.speechStyle || 'natural'}, vestimenta=${char.outfit || 'sin det[...`;
+      return `- ${char.name}: identidad=${char.identity || 'sin identidad'}, objetivo=${char.goal || 'sin objetivo'}, estilo=${char.speechStyle || 'natural'}, vestimenta=${char.outfit || 'sin detalle'}, memoria=${memories.length ? memories.map((m) => m.summary).join(' | ') : 'sin memorias pinneadas'}, relaciones=${rels || 'sin relaciones'}`;
     })
     .join('\n');
 
@@ -198,11 +198,6 @@ function App() {
       saveState(next);
       return next;
     });
-  };
-
-  const saveToStorage = (next) => {
-    saveState(next);
-    setState(next);
   };
 
   const handleImageUpload = async (event, setter) => {
@@ -295,27 +290,6 @@ function App() {
       activeChatId: chat.id
     }));
     setChatDraft({ name: '', universeId: '', participants: [], scene: '', description: '', openingDialogue: '', type: 'group' });
-  };
-
-  const createRelationMatrix = (charAId, charBId) => {
-    const allChars = state.characters;
-    const left = allChars.find((c) => c.id === charAId);
-    const right = allChars.find((c) => c.id === charBId);
-    if (!left || !right) return;
-
-    if (!left.relations) left.relations = {};
-    if (!right.relations) right.relations = {};
-
-    if (!left.relations[charBId]) left.relations[charBId] = { ...initialRelations };
-    if (!right.relations[charAId]) right.relations[charAId] = { ...initialRelations };
-
-    const next = { ...state };
-    next.characters = next.characters.map((char) => {
-      if (char.id === charAId) return { ...char, relations: { ...char.relations, [charBId]: { ...(char.relations[charBId] || initialRelations) } } };
-      if (char.id === charBId) return { ...char, relations: { ...char.relations, [charAId]: { ...(char.relations[charAId] || initialRelations) } } };
-      return char;
-    });
-    setState(next);
   };
 
   const updateRelation = (sourceId, targetId, affinityDelta, note) => {
@@ -602,27 +576,6 @@ function App() {
           <button className="button danger" onClick={resetAll}>Borrar todo</button>
         </div>
       </header>
-
-      <div className="section-tabs" aria-label="Secciones de NEXUS">
-        <button
-          className={`section-tab ${activeSection === 'mundo' ? 'active' : ''}`}
-          onClick={() => setActiveSection('mundo')}
-        >
-          Mundo
-        </button>
-        <button
-          className={`section-tab ${activeSection === 'chat' ? 'active' : ''}`}
-          onClick={() => setActiveSection('chat')}
-        >
-          Chat
-        </button>
-        <button
-          className={`section-tab ${activeSection === 'personajes' ? 'active' : ''}`}
-          onClick={() => setActiveSection('personajes')}
-        >
-          Personajes
-        </button>
-      </div>
 
       {activeSection === 'mundo' ? (
         <div className="layout-grid">
@@ -1092,6 +1045,18 @@ function App() {
           </aside>
         </div>
       )}
+
+      <div className="section-tabs" aria-label="Secciones de NEXUS">
+        <button className={`section-tab ${activeSection === 'mundo' ? 'active' : ''}`} onClick={() => setActiveSection('mundo')}>
+          Mundo
+        </button>
+        <button className={`section-tab ${activeSection === 'chat' ? 'active' : ''}`} onClick={() => setActiveSection('chat')}>
+          Chat
+        </button>
+        <button className={`section-tab ${activeSection === 'personajes' ? 'active' : ''}`} onClick={() => setActiveSection('personajes')}>
+          Personajes
+        </button>
+      </div>
     </div>
   );
 }
