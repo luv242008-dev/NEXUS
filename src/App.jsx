@@ -122,14 +122,14 @@ function buildPromptFromChat(chat, state) {
         .slice(0, 3)
         .join('; ');
 
-      return `- ${char.name}: identidad=${char.identity || 'sin identidad'}, objetivo=${char.goal || 'sin objetivo'}, estilo=${char.speechStyle || 'natural'}, vestimenta=${char.outfit || 'sin detalle'}, fisico=${char.physical || 'sin detalle'}, recuerdos=${memories.map((m) => m.summary).join(' | ') || 'ninguno'}, relaciones=${rels || 'sin vínculos'}, secretos=${char.secret || 'sin secretos'}`;
+      return `- ${char.name}: identidad=${char.identity || 'sin identidad'}, objetivo=${char.goal || 'sin objetivo'}, estilo=${char.speechStyle || 'natural'}, vestimenta=${char.outfit || 'sin det[...`;
     })
     .join('\n');
 
   const universe = chat.universeId ? state.universes.find((u) => u.id === chat.universeId) : null;
   const world = universe ? `\nUniverso: ${universe.name}. Lore: ${universe.lore || 'sin lore definido'}. Tono: ${universe.tone || 'sin tono definido'}.` : '';
 
-  return `Eres un motor de roleplay narrativo. Responde solo desde el punto de vista del personaje activo. No hables en nombre del usuario ni describas lo que el jugador siente. Solo describe lo que el personaje ve, dice y hace.\n\nEscena actual: ${chat.scene || 'sin escena'}\nDescripción: ${chat.description || 'sin descripción'}\nParticipantes:\n${lore || 'Sin participantes'}${world}\n\nReglas: la relación con cada personaje debe respetar su afinidad, estado, memoria y puntos ciegos; no inventes secretos ni hechos que no estén en el contexto; toda respuesta debe ser coherente con la continuidad reciente del chat.`;
+  return `Eres un motor de roleplay narrativo. Responde solo desde el punto de vista del personaje activo. No hables en nombre del usuario ni describas lo que el jugador siente. Solo describe lo que el personaje ve, dice y hace.\n\nContexto de escena:\n${lore}${world}\n\nNo conviertas el mensaje del jugador en narración omnisciente; responde como diálogo o acción del personaje.`;
 }
 
 const categoryPalette = {
@@ -151,6 +151,7 @@ function App() {
   const [messageDraft, setMessageDraft] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [installState, setInstallState] = useState({ available: false, prompt: null });
+  const [activeSection, setActiveSection] = useState('chat');
 
   useEffect(() => {
     saveState(state);
@@ -602,239 +603,495 @@ function App() {
         </div>
       </header>
 
-      <div className="layout-grid">
-        <aside className="sidebar left-panel">
-          <section className="panel">
-            <h3>Universos</h3>
-            <div className="stack">
-              <input value={newUniverse.name} onChange={(e) => setNewUniverse((prev) => ({ ...prev, name: e.target.value }))} placeholder="Nombre del universo" />
-              <textarea value={newUniverse.lore} onChange={(e) => setNewUniverse((prev) => ({ ...prev, lore: e.target.value }))} placeholder="Lore y reglas" rows={2} />
-              <input value={newUniverse.tone} onChange={(e) => setNewUniverse((prev) => ({ ...prev, tone: e.target.value }))} placeholder="Tono narrativo" />
-              <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setNewUniverse)} />
-              <button className="button primary" onClick={addUniverse}>Crear universo</button>
-            </div>
-            <div className="card-list compact">
-              {state.universes.map((uni) => (
-                <div key={uni.id} className={`card ${state.activeUniverseId === uni.id ? 'selected' : ''}`} onClick={() => setState((prev) => ({ ...prev, activeUniverseId: uni.id }))}>
-                  {uni.image && <img src={uni.image} alt={uni.name} className="card-image" />}
-                  <div className="card-body">
-                    <strong>{uni.name}</strong>
-                    <small>{(state.characters.filter((c) => c.universeId === uni.id)).length} personajes</small>
-                  </div>
-                  <button className="mini-button danger" onClick={(e) => { e.stopPropagation(); deleteUniverse(uni.id); }}>X</button>
-                </div>
-              ))}
-            </div>
-          </section>
+      <div className="section-tabs" aria-label="Secciones de NEXUS">
+        <button
+          className={`section-tab ${activeSection === 'mundo' ? 'active' : ''}`}
+          onClick={() => setActiveSection('mundo')}
+        >
+          Mundo
+        </button>
+        <button
+          className={`section-tab ${activeSection === 'chat' ? 'active' : ''}`}
+          onClick={() => setActiveSection('chat')}
+        >
+          Chat
+        </button>
+        <button
+          className={`section-tab ${activeSection === 'personajes' ? 'active' : ''}`}
+          onClick={() => setActiveSection('personajes')}
+        >
+          Personajes
+        </button>
+      </div>
 
-          <section className="panel">
-            <h3>Personajes</h3>
-            <div className="stack">
-              <input value={newCharacter.name} onChange={(e) => setNewCharacter((prev) => ({ ...prev, name: e.target.value }))} placeholder="Nombre del personaje" />
-              <select value={newCharacter.universeId || state.activeUniverseId || ''} onChange={(e) => setNewCharacter((prev) => ({ ...prev, universeId: e.target.value }))}>
-                <option value="">Sin universo</option>
-                {state.universes.map((uni) => <option key={uni.id} value={uni.id}>{uni.name}</option>)}
-              </select>
-              <input value={newCharacter.identity} onChange={(e) => setNewCharacter((prev) => ({ ...prev, identity: e.target.value }))} placeholder="Identidad" />
-              <input value={newCharacter.goal} onChange={(e) => setNewCharacter((prev) => ({ ...prev, goal: e.target.value }))} placeholder="Objetivo" />
-              <input value={newCharacter.speechStyle} onChange={(e) => setNewCharacter((prev) => ({ ...prev, speechStyle: e.target.value }))} placeholder="Estilo de habla" />
-              <textarea value={newCharacter.description} onChange={(e) => setNewCharacter((prev) => ({ ...prev, description: e.target.value }))} placeholder="Trasfondo" rows={2} />
-              <textarea value={newCharacter.outfit} onChange={(e) => setNewCharacter((prev) => ({ ...prev, outfit: e.target.value }))} placeholder="Vestimenta y equipo" rows={2} />
-              <textarea value={newCharacter.physical} onChange={(e) => setNewCharacter((prev) => ({ ...prev, physical: e.target.value }))} placeholder="Físico y fisonomía" rows={2} />
-              <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setNewCharacter)} />
-              <button className="button primary" onClick={addCharacter}>Crear personaje</button>
-            </div>
-            <div className="card-list compact">
-              {filteredCharacters.map((char) => (
-                <div key={char.id} className={`card ${state.activeCharacterId === char.id ? 'selected' : ''}`} onClick={() => setState((prev) => ({ ...prev, activeCharacterId: char.id }))}>
-                  {char.image && <img src={char.image} alt={char.name} className="card-image" />}
-                  <div className="card-body">
-                    <strong>{char.name}</strong>
-                    <small>{char.identity || 'Sin identidad'}</small>
-                  </div>
-                  <button className="mini-button danger" onClick={(e) => { e.stopPropagation(); deleteCharacter(char.id); }}>X</button>
-                </div>
-              ))}
-            </div>
-          </section>
-        </aside>
-
-        <main className="chat-panel">
-          <section className="panel chat-header-panel">
-            <div className="chat-header">
-              <div>
-                <h3>{activeChat ? activeChat.name : 'Nueva sala'}</h3>
-                <small>{activeChat ? activeChat.scene || 'Sin escena' : 'Selecciona un chat'}</small>
+      {activeSection === 'mundo' ? (
+        <div className="layout-grid">
+          <aside className="sidebar left-panel">
+            <section className="panel">
+              <h3>Universos</h3>
+              <div className="stack">
+                <input value={newUniverse.name} onChange={(e) => setNewUniverse((prev) => ({ ...prev, name: e.target.value }))} placeholder="Nombre del universo" />
+                <textarea value={newUniverse.lore} onChange={(e) => setNewUniverse((prev) => ({ ...prev, lore: e.target.value }))} placeholder="Lore y reglas" rows={2} />
+                <input value={newUniverse.tone} onChange={(e) => setNewUniverse((prev) => ({ ...prev, tone: e.target.value }))} placeholder="Tono narrativo" />
+                <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setNewUniverse)} />
+                <button className="button primary" onClick={addUniverse}>Crear universo</button>
               </div>
-              <div className="header-actions">
-                {activeChat && <button className="button ghost" onClick={() => clearMessagesInChat(activeChat.id)}>Vaciar chat</button>}
-                {activeChat && <button className="button danger" onClick={() => deleteChat(activeChat.id)}>Eliminar sala</button>}
-              </div>
-            </div>
-
-            <div className="chat-form">
-              <input value={chatDraft.name} onChange={(e) => setChatDraft((prev) => ({ ...prev, name: e.target.value }))} placeholder="Nombre del chat" />
-              <select value={chatDraft.type} onChange={(e) => setChatDraft((prev) => ({ ...prev, type: e.target.value }))}>
-                <option value="group">Grupal</option>
-                <option value="solo">Individual</option>
-              </select>
-              <select value={chatDraft.universeId || state.activeUniverseId || ''} onChange={(e) => setChatDraft((prev) => ({ ...prev, universeId: e.target.value }))}>
-                <option value="">Sin universo</option>
-                {state.universes.map((uni) => <option key={uni.id} value={uni.id}>{uni.name}</option>)}
-              </select>
-              <input value={chatDraft.scene} onChange={(e) => setChatDraft((prev) => ({ ...prev, scene: e.target.value }))} placeholder="Escena activa" />
-              <textarea value={chatDraft.description} onChange={(e) => setChatDraft((prev) => ({ ...prev, description: e.target.value }))} placeholder="Descripción del chat" rows={2} />
-              <textarea value={chatDraft.openingDialogue} onChange={(e) => setChatDraft((prev) => ({ ...prev, openingDialogue: e.target.value }))} placeholder="Diálogo de inicio" rows={2} />
-              <div className="participant-picker">
-                {state.characters.map((char) => (
-                  <label key={char.id} className="choice-pill">
-                    <input type="checkbox" checked={chatDraft.participants.includes(char.id)} onChange={() => toggleParticipant(char.id)} />
-                    {char.name}
-                  </label>
+              <div className="card-list compact">
+                {state.universes.map((uni) => (
+                  <div key={uni.id} className={`card ${state.activeUniverseId === uni.id ? 'selected' : ''}`} onClick={() => setState((prev) => ({ ...prev, activeUniverseId: uni.id }))}>
+                    {uni.image && <img src={uni.image} alt={uni.name} className="card-image" />}
+                    <div className="card-body">
+                      <strong>{uni.name}</strong>
+                      <small>{(state.characters.filter((c) => c.universeId === uni.id)).length} personajes</small>
+                    </div>
+                    <button className="mini-button danger" onClick={(e) => { e.stopPropagation(); deleteUniverse(uni.id); }}>X</button>
+                  </div>
                 ))}
               </div>
-              <button className="button primary" onClick={addChat}>Crear / abrir chat</button>
+            </section>
+          </aside>
+
+          <main className="panel overview-panel">
+            <h3>Visión general del mundo</h3>
+            <div className="overview-grid">
+              <div className="metric-card">
+                <span>Universos</span>
+                <strong>{state.universes.length}</strong>
+              </div>
+              <div className="metric-card">
+                <span>Personajes</span>
+                <strong>{state.characters.length}</strong>
+              </div>
+              <div className="metric-card">
+                <span>Salas</span>
+                <strong>{state.chats.length}</strong>
+              </div>
             </div>
-          </section>
 
-          {activeChat ? (
-            <>
-              <div className="chat-scene-meta">
-                <div className="scene-box">
-                  <strong>Escena</strong>
-                  <p>{activeChat.scene || 'Sin escena definida'}</p>
-                </div>
-                <div className="scene-box">
-                  <strong>Diálogo inicial</strong>
-                  <p>{activeChat.openingDialogue || 'No hay inicio narrativo'}</p>
+            {activeUniverse ? (
+              <div className="world-details">
+                <h4>{activeUniverse.name}</h4>
+                <p>{activeUniverse.lore || 'Sin lore definido aún.'}</p>
+                <div className="mini-badges">
+                  {state.characters.filter((char) => char.universeId === activeUniverse.id).map((char) => (
+                    <span key={char.id} className="mini-badge" onClick={() => setState((prev) => ({ ...prev, activeCharacterId: char.id }))}>
+                      {char.name}
+                    </span>
+                  ))}
                 </div>
               </div>
+            ) : (
+              <p className="empty">Selecciona un universo para ver su historia.</p>
+            )}
+          </main>
 
-              <div className="chat-thread">
-                {activeChat.messages.map((message) => {
-                  const isUser = message.author === 'user';
-                  const author = isUser ? 'Tú' : state.characters.find((c) => c.id === message.author)?.name || 'NPC';
-                  return (
-                    <div key={message.id} className={`message ${isUser ? 'user' : 'npc'}`}>
-                      <div className="message-meta">
-                        <strong>{author}</strong>
-                        <span>{new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-                      <p>{message.text}</p>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="composer">
-                <textarea value={messageDraft} onChange={(e) => setMessageDraft(e.target.value)} rows={4} placeholder="Escribe la escena o el diálogo..." />
-                <div className="quick-format-bar">
-                  <button onClick={() => setMessageDraft((prev) => `${prev} *Se inclina hacia delante.*`)}>Acción</button>
-                  <button onClick={() => setMessageDraft((prev) => `${prev} *¿Qué quieres de mí?*`)}>Diálogo</button>
-                  <button onClick={() => setMessageDraft((prev) => `${prev} [Físico]`)}>Físico</button>
-                </div>
-                <button className="button primary" onClick={sendMessage}>Enviar</button>
-              </div>
-            </>
-          ) : (
-            <div className="empty-state">Crea o selecciona una sala para comenzar.</div>
-          )}
-        </main>
-
-        <aside className="sidebar right-panel">
-          <section className="panel">
-            <h3>Personaje activo</h3>
-            {activeCharacter ? (
-              <div className="character-sheet">
-                {activeCharacter.image && <img src={activeCharacter.image} alt={activeCharacter.name} className="profile-image" />}
-                <h4>{activeCharacter.name}</h4>
-                <p><strong>Identidad:</strong> {activeCharacter.identity || 'Sin identidad'}</p>
-                <p><strong>Objetivo:</strong> {activeCharacter.goal || 'Sin objetivo'}</p>
-                <p><strong>Estilo:</strong> {activeCharacter.speechStyle || 'Natural'}</p>
-                <div className="field-block">
-                  <strong>Vestimenta y Equipamiento</strong>
-                  <p>{activeCharacter.outfit || 'Sin equipamiento'}</p>
-                </div>
-                <div className="field-block">
-                  <strong>Físico y Fisonomía</strong>
-                  <p>{activeCharacter.physical || 'Sin descripción física'}</p>
-                </div>
-                <div className="field-block">
-                  <strong>Memorias</strong>
-                  <div className="memory-list">
-                    {(activeCharacter.memories || []).slice(0, 5).map((mem) => (
-                      <div key={mem.id} className="memory-item" style={{ borderLeft: `4px solid ${categoryPalette[mem.category] || '#888'}` }}>
-                        <span className="tag" style={{ background: categoryPalette[mem.category] || '#888' }}>{mem.category}</span>
-                        <strong>{mem.relevance || 1}/10</strong>
-                        <p>{mem.summary}</p>
-                        {mem.pinned && <small>Pinned</small>}
-                      </div>
-                    ))}
+          <aside className="sidebar right-panel">
+            <section className="panel">
+              <h3>Personaje activo</h3>
+              {activeCharacter ? (
+                <div className="character-sheet">
+                  {activeCharacter.image && <img src={activeCharacter.image} alt={activeCharacter.name} className="profile-image" />}
+                  <h4>{activeCharacter.name}</h4>
+                  <p><strong>Identidad:</strong> {activeCharacter.identity || 'Sin identidad'}</p>
+                  <p><strong>Objetivo:</strong> {activeCharacter.goal || 'Sin objetivo'}</p>
+                  <p><strong>Estilo:</strong> {activeCharacter.speechStyle || 'Natural'}</p>
+                  <div className="field-block">
+                    <strong>Vestimenta y Equipamiento</strong>
+                    <p>{activeCharacter.outfit || 'Sin equipamiento'}</p>
+                  </div>
+                  <div className="field-block">
+                    <strong>Físico y Fisonomía</strong>
+                    <p>{activeCharacter.physical || 'Sin descripción física'}</p>
                   </div>
                 </div>
-              </div>
-            ) : <p className="empty">Selecciona un personaje.</p>}
-          </section>
+              ) : <p className="empty">Selecciona un personaje.</p>}
+            </section>
 
-          <section className="panel">
-            <h3>Matriz de relaciones</h3>
-            {renderRelationMatrix()}
-          </section>
+            <section className="panel">
+              <h3>Matriz de relaciones</h3>
+              {renderRelationMatrix()}
+            </section>
 
-          {settingsOpen && (
-            <section className="panel settings-panel">
-              <h3>Ajustes</h3>
+            {settingsOpen && (
+              <section className="panel settings-panel">
+                <h3>Ajustes</h3>
+                <div className="stack">
+                  <label>
+                    Tema
+                    <select value={state.settings.theme} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, theme: e.target.value } }))}>
+                      <option value="obsidian">Obsidiana Pura</option>
+                      <option value="midnight">Medianoche Ciber</option>
+                      <option value="sepia">Sepia Penumbra</option>
+                      <option value="grafito">Grafito Nórdico</option>
+                    </select>
+                  </label>
+                  <label>
+                    Tipografía
+                    <select value={state.settings.fontScale} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, fontScale: e.target.value } }))}>
+                      <option value="small">Pequeña</option>
+                      <option value="comfortable">Mediana</option>
+                      <option value="large">Cómoda</option>
+                      <option value="wide">Amplia</option>
+                    </select>
+                  </label>
+                  <label>
+                    Auto relaciones
+                    <input type="checkbox" checked={state.settings.autoRelations ?? true} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, autoRelations: e.target.checked } }))} />
+                  </label>
+                  <label>
+                    Guardar memoria cada N mensajes
+                    <select value={state.settings.autoMemoryEvery || 4} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, autoMemoryEvery: Number(e.target.value) } }))}>
+                      <option value={3}>3</option>
+                      <option value={4}>4</option>
+                      <option value={5}>5</option>
+                      <option value={8}>8</option>
+                    </select>
+                  </label>
+                  <label>
+                    OpenRouter API Key
+                    <input type="password" value={state.settings.openRouterApiKey || ''} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, openRouterApiKey: e.target.value } }))} />
+                  </label>
+                  <label>
+                    Modelo
+                    <select value={state.settings.openRouterModel || 'openai/gpt-4o-mini'} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, openRouterModel: e.target.value } }))}>
+                      <option value="openai/gpt-4o-mini">OpenAI GPT-4o mini</option>
+                      <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</option>
+                      <option value="meta-llama/llama-3.1-8b-instruct:free">Llama 3.1 8B Free</option>
+                      <option value="cognitivecomputations/dolphin-mixtral-8x7b">Dolphin Mixtral</option>
+                    </select>
+                  </label>
+                  <button className="button primary" onClick={() => setSettingsOpen(false)}>Guardar ajustes</button>
+                </div>
+              </section>
+            )}
+          </aside>
+        </div>
+      ) : activeSection === 'personajes' ? (
+        <div className="layout-grid">
+          <aside className="sidebar left-panel">
+            <section className="panel">
+              <h3>Personajes</h3>
               <div className="stack">
-                <label>
-                  Tema
-                  <select value={state.settings.theme} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, theme: e.target.value } }))}>
-                    <option value="obsidian">Obsidiana Pura</option>
-                    <option value="midnight">Medianoche Ciber</option>
-                    <option value="sepia">Sepia Penumbra</option>
-                    <option value="grafito">Grafito Nórdico</option>
-                  </select>
-                </label>
-                <label>
-                  Tipografía
-                  <select value={state.settings.fontScale} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, fontScale: e.target.value } }))}>
-                    <option value="small">Pequeña</option>
-                    <option value="comfortable">Mediana</option>
-                    <option value="large">Cómoda</option>
-                    <option value="wide">Amplia</option>
-                  </select>
-                </label>
-                <label>
-                  Auto relaciones
-                  <input type="checkbox" checked={state.settings.autoRelations ?? true} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, autoRelations: e.target.checked } }))} />
-                </label>
-                <label>
-                  Guardar memoria cada N mensajes
-                  <select value={state.settings.autoMemoryEvery || 4} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, autoMemoryEvery: Number(e.target.value) } }))}>
-                    <option value={3}>3</option>
-                    <option value={4}>4</option>
-                    <option value={5}>5</option>
-                    <option value={8}>8</option>
-                  </select>
-                </label>
-                <label>
-                  OpenRouter API Key
-                  <input type="password" value={state.settings.openRouterApiKey || ''} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, openRouterApiKey: e.target.value } }))} />
-                </label>
-                <label>
-                  Modelo
-                  <select value={state.settings.openRouterModel || 'openai/gpt-4o-mini'} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, openRouterModel: e.target.value } }))}>
-                    <option value="openai/gpt-4o-mini">OpenAI GPT-4o mini</option>
-                    <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</option>
-                    <option value="meta-llama/llama-3.1-8b-instruct:free">Llama 3.1 8B Free</option>
-                    <option value="cognitivecomputations/dolphin-mixtral-8x7b">Dolphin Mixtral</option>
-                  </select>
-                </label>
-                <button className="button primary" onClick={() => setSettingsOpen(false)}>Guardar ajustes</button>
+                <input value={newCharacter.name} onChange={(e) => setNewCharacter((prev) => ({ ...prev, name: e.target.value }))} placeholder="Nombre del personaje" />
+                <select value={newCharacter.universeId || state.activeUniverseId || ''} onChange={(e) => setNewCharacter((prev) => ({ ...prev, universeId: e.target.value }))}>
+                  <option value="">Sin universo</option>
+                  {state.universes.map((uni) => <option key={uni.id} value={uni.id}>{uni.name}</option>)}
+                </select>
+                <input value={newCharacter.identity} onChange={(e) => setNewCharacter((prev) => ({ ...prev, identity: e.target.value }))} placeholder="Identidad" />
+                <input value={newCharacter.goal} onChange={(e) => setNewCharacter((prev) => ({ ...prev, goal: e.target.value }))} placeholder="Objetivo" />
+                <input value={newCharacter.speechStyle} onChange={(e) => setNewCharacter((prev) => ({ ...prev, speechStyle: e.target.value }))} placeholder="Estilo de habla" />
+                <textarea value={newCharacter.description} onChange={(e) => setNewCharacter((prev) => ({ ...prev, description: e.target.value }))} placeholder="Trasfondo" rows={2} />
+                <textarea value={newCharacter.outfit} onChange={(e) => setNewCharacter((prev) => ({ ...prev, outfit: e.target.value }))} placeholder="Vestimenta y equipo" rows={2} />
+                <textarea value={newCharacter.physical} onChange={(e) => setNewCharacter((prev) => ({ ...prev, physical: e.target.value }))} placeholder="Físico y fisonomía" rows={2} />
+                <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setNewCharacter)} />
+                <button className="button primary" onClick={addCharacter}>Crear personaje</button>
+              </div>
+              <div className="card-list compact">
+                {state.characters.map((char) => (
+                  <div key={char.id} className={`card ${state.activeCharacterId === char.id ? 'selected' : ''}`} onClick={() => setState((prev) => ({ ...prev, activeCharacterId: char.id }))}>
+                    {char.image && <img src={char.image} alt={char.name} className="card-image" />}
+                    <div className="card-body">
+                      <strong>{char.name}</strong>
+                      <small>{char.identity || 'Sin identidad'}</small>
+                    </div>
+                    <button className="mini-button danger" onClick={(e) => { e.stopPropagation(); deleteCharacter(char.id); }}>X</button>
+                  </div>
+                ))}
               </div>
             </section>
-          )}
-        </aside>
-      </div>
+          </aside>
+
+          <main className="panel directory-panel">
+            <h3>Directorio de personajes</h3>
+            <div className="directory-grid">
+              {state.characters.map((char) => (
+                <div key={char.id} className={`directory-card ${state.activeCharacterId === char.id ? 'selected' : ''}`} onClick={() => setState((prev) => ({ ...prev, activeCharacterId: char.id }))}>
+                  {char.image && <img src={char.image} alt={char.name} className="directory-image" />}
+                  <div>
+                    <strong>{char.name}</strong>
+                    <p>{char.identity || 'Sin identidad'}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </main>
+
+          <aside className="sidebar right-panel">
+            <section className="panel">
+              <h3>Personaje activo</h3>
+              {activeCharacter ? (
+                <div className="character-sheet">
+                  {activeCharacter.image && <img src={activeCharacter.image} alt={activeCharacter.name} className="profile-image" />}
+                  <h4>{activeCharacter.name}</h4>
+                  <p><strong>Identidad:</strong> {activeCharacter.identity || 'Sin identidad'}</p>
+                  <p><strong>Objetivo:</strong> {activeCharacter.goal || 'Sin objetivo'}</p>
+                  <p><strong>Estilo:</strong> {activeCharacter.speechStyle || 'Natural'}</p>
+                  <div className="field-block">
+                    <strong>Trasfondo</strong>
+                    <p>{activeCharacter.description || 'Sin trasfondo definido'}</p>
+                  </div>
+                  <div className="field-block">
+                    <strong>Vestimenta y Equipamiento</strong>
+                    <p>{activeCharacter.outfit || 'Sin equipamiento'}</p>
+                  </div>
+                  <div className="field-block">
+                    <strong>Memorias</strong>
+                    <div className="memory-list">
+                      {(activeCharacter.memories || []).slice(0, 5).map((mem) => (
+                        <div key={mem.id} className="memory-item" style={{ borderLeft: `4px solid ${categoryPalette[mem.category] || '#888'}` }}>
+                          <span className="tag" style={{ background: categoryPalette[mem.category] || '#888' }}>{mem.category}</span>
+                          <strong>{mem.relevance || 1}/10</strong>
+                          <p>{mem.summary}</p>
+                          {mem.pinned && <small>Pinned</small>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : <p className="empty">Selecciona un personaje.</p>}
+            </section>
+
+            <section className="panel">
+              <h3>Matriz de relaciones</h3>
+              {renderRelationMatrix()}
+            </section>
+          </aside>
+        </div>
+      ) : (
+        <div className="layout-grid">
+          <aside className="sidebar left-panel">
+            <section className="panel">
+              <h3>Universos</h3>
+              <div className="stack">
+                <input value={newUniverse.name} onChange={(e) => setNewUniverse((prev) => ({ ...prev, name: e.target.value }))} placeholder="Nombre del universo" />
+                <textarea value={newUniverse.lore} onChange={(e) => setNewUniverse((prev) => ({ ...prev, lore: e.target.value }))} placeholder="Lore y reglas" rows={2} />
+                <input value={newUniverse.tone} onChange={(e) => setNewUniverse((prev) => ({ ...prev, tone: e.target.value }))} placeholder="Tono narrativo" />
+                <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setNewUniverse)} />
+                <button className="button primary" onClick={addUniverse}>Crear universo</button>
+              </div>
+              <div className="card-list compact">
+                {state.universes.map((uni) => (
+                  <div key={uni.id} className={`card ${state.activeUniverseId === uni.id ? 'selected' : ''}`} onClick={() => setState((prev) => ({ ...prev, activeUniverseId: uni.id }))}>
+                    {uni.image && <img src={uni.image} alt={uni.name} className="card-image" />}
+                    <div className="card-body">
+                      <strong>{uni.name}</strong>
+                      <small>{(state.characters.filter((c) => c.universeId === uni.id)).length} personajes</small>
+                    </div>
+                    <button className="mini-button danger" onClick={(e) => { e.stopPropagation(); deleteUniverse(uni.id); }}>X</button>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="panel">
+              <h3>Personajes</h3>
+              <div className="stack">
+                <input value={newCharacter.name} onChange={(e) => setNewCharacter((prev) => ({ ...prev, name: e.target.value }))} placeholder="Nombre del personaje" />
+                <select value={newCharacter.universeId || state.activeUniverseId || ''} onChange={(e) => setNewCharacter((prev) => ({ ...prev, universeId: e.target.value }))}>
+                  <option value="">Sin universo</option>
+                  {state.universes.map((uni) => <option key={uni.id} value={uni.id}>{uni.name}</option>)}
+                </select>
+                <input value={newCharacter.identity} onChange={(e) => setNewCharacter((prev) => ({ ...prev, identity: e.target.value }))} placeholder="Identidad" />
+                <input value={newCharacter.goal} onChange={(e) => setNewCharacter((prev) => ({ ...prev, goal: e.target.value }))} placeholder="Objetivo" />
+                <input value={newCharacter.speechStyle} onChange={(e) => setNewCharacter((prev) => ({ ...prev, speechStyle: e.target.value }))} placeholder="Estilo de habla" />
+                <textarea value={newCharacter.description} onChange={(e) => setNewCharacter((prev) => ({ ...prev, description: e.target.value }))} placeholder="Trasfondo" rows={2} />
+                <textarea value={newCharacter.outfit} onChange={(e) => setNewCharacter((prev) => ({ ...prev, outfit: e.target.value }))} placeholder="Vestimenta y equipo" rows={2} />
+                <textarea value={newCharacter.physical} onChange={(e) => setNewCharacter((prev) => ({ ...prev, physical: e.target.value }))} placeholder="Físico y fisonomía" rows={2} />
+                <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, setNewCharacter)} />
+                <button className="button primary" onClick={addCharacter}>Crear personaje</button>
+              </div>
+              <div className="card-list compact">
+                {filteredCharacters.map((char) => (
+                  <div key={char.id} className={`card ${state.activeCharacterId === char.id ? 'selected' : ''}`} onClick={() => setState((prev) => ({ ...prev, activeCharacterId: char.id }))}>
+                    {char.image && <img src={char.image} alt={char.name} className="card-image" />}
+                    <div className="card-body">
+                      <strong>{char.name}</strong>
+                      <small>{char.identity || 'Sin identidad'}</small>
+                    </div>
+                    <button className="mini-button danger" onClick={(e) => { e.stopPropagation(); deleteCharacter(char.id); }}>X</button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </aside>
+
+          <main className="chat-panel">
+            <section className="panel chat-header-panel">
+              <div className="chat-header">
+                <div>
+                  <h3>{activeChat ? activeChat.name : 'Nueva sala'}</h3>
+                  <small>{activeChat ? activeChat.scene || 'Sin escena' : 'Selecciona un chat'}</small>
+                </div>
+                <div className="header-actions">
+                  {activeChat && <button className="button ghost" onClick={() => clearMessagesInChat(activeChat.id)}>Vaciar chat</button>}
+                  {activeChat && <button className="button danger" onClick={() => deleteChat(activeChat.id)}>Eliminar sala</button>}
+                </div>
+              </div>
+
+              <div className="chat-form">
+                <input value={chatDraft.name} onChange={(e) => setChatDraft((prev) => ({ ...prev, name: e.target.value }))} placeholder="Nombre del chat" />
+                <select value={chatDraft.type} onChange={(e) => setChatDraft((prev) => ({ ...prev, type: e.target.value }))}>
+                  <option value="group">Grupal</option>
+                  <option value="solo">Individual</option>
+                </select>
+                <select value={chatDraft.universeId || state.activeUniverseId || ''} onChange={(e) => setChatDraft((prev) => ({ ...prev, universeId: e.target.value }))}>
+                  <option value="">Sin universo</option>
+                  {state.universes.map((uni) => <option key={uni.id} value={uni.id}>{uni.name}</option>)}
+                </select>
+                <input value={chatDraft.scene} onChange={(e) => setChatDraft((prev) => ({ ...prev, scene: e.target.value }))} placeholder="Escena activa" />
+                <textarea value={chatDraft.description} onChange={(e) => setChatDraft((prev) => ({ ...prev, description: e.target.value }))} placeholder="Descripción del chat" rows={2} />
+                <textarea value={chatDraft.openingDialogue} onChange={(e) => setChatDraft((prev) => ({ ...prev, openingDialogue: e.target.value }))} placeholder="Diálogo de inicio" rows={2} />
+                <div className="participant-picker">
+                  {state.characters.map((char) => (
+                    <label key={char.id} className="choice-pill">
+                      <input type="checkbox" checked={chatDraft.participants.includes(char.id)} onChange={() => toggleParticipant(char.id)} />
+                      {char.name}
+                    </label>
+                  ))}
+                </div>
+                <button className="button primary" onClick={addChat}>Crear / abrir chat</button>
+              </div>
+            </section>
+
+            {activeChat ? (
+              <>
+                <div className="chat-scene-meta">
+                  <div className="scene-box">
+                    <strong>Escena</strong>
+                    <p>{activeChat.scene || 'Sin escena definida'}</p>
+                  </div>
+                  <div className="scene-box">
+                    <strong>Diálogo inicial</strong>
+                    <p>{activeChat.openingDialogue || 'No hay inicio narrativo'}</p>
+                  </div>
+                </div>
+
+                <div className="chat-thread">
+                  {activeChat.messages.map((message) => {
+                    const isUser = message.author === 'user';
+                    const author = isUser ? 'Tú' : state.characters.find((c) => c.id === message.author)?.name || 'NPC';
+                    return (
+                      <div key={message.id} className={`message ${isUser ? 'user' : 'npc'}`}>
+                        <div className="message-meta">
+                          <strong>{author}</strong>
+                          <span>{new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        <p>{message.text}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="composer">
+                  <textarea value={messageDraft} onChange={(e) => setMessageDraft(e.target.value)} rows={4} placeholder="Escribe la escena o el diálogo..." />
+                  <div className="quick-format-bar">
+                    <button onClick={() => setMessageDraft((prev) => `${prev} *Se inclina hacia delante.*`)}>Acción</button>
+                    <button onClick={() => setMessageDraft((prev) => `${prev} *¿Qué quieres de mí?*`)}>Diálogo</button>
+                    <button onClick={() => setMessageDraft((prev) => `${prev} [Físico]`)}>Físico</button>
+                  </div>
+                  <button className="button primary" onClick={sendMessage}>Enviar</button>
+                </div>
+              </>
+            ) : (
+              <div className="empty-state">Crea o selecciona una sala para comenzar.</div>
+            )}
+          </main>
+
+          <aside className="sidebar right-panel">
+            <section className="panel">
+              <h3>Personaje activo</h3>
+              {activeCharacter ? (
+                <div className="character-sheet">
+                  {activeCharacter.image && <img src={activeCharacter.image} alt={activeCharacter.name} className="profile-image" />}
+                  <h4>{activeCharacter.name}</h4>
+                  <p><strong>Identidad:</strong> {activeCharacter.identity || 'Sin identidad'}</p>
+                  <p><strong>Objetivo:</strong> {activeCharacter.goal || 'Sin objetivo'}</p>
+                  <p><strong>Estilo:</strong> {activeCharacter.speechStyle || 'Natural'}</p>
+                  <div className="field-block">
+                    <strong>Vestimenta y Equipamiento</strong>
+                    <p>{activeCharacter.outfit || 'Sin equipamiento'}</p>
+                  </div>
+                  <div className="field-block">
+                    <strong>Físico y Fisonomía</strong>
+                    <p>{activeCharacter.physical || 'Sin descripción física'}</p>
+                  </div>
+                  <div className="field-block">
+                    <strong>Memorias</strong>
+                    <div className="memory-list">
+                      {(activeCharacter.memories || []).slice(0, 5).map((mem) => (
+                        <div key={mem.id} className="memory-item" style={{ borderLeft: `4px solid ${categoryPalette[mem.category] || '#888'}` }}>
+                          <span className="tag" style={{ background: categoryPalette[mem.category] || '#888' }}>{mem.category}</span>
+                          <strong>{mem.relevance || 1}/10</strong>
+                          <p>{mem.summary}</p>
+                          {mem.pinned && <small>Pinned</small>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : <p className="empty">Selecciona un personaje.</p>}
+            </section>
+
+            <section className="panel">
+              <h3>Matriz de relaciones</h3>
+              {renderRelationMatrix()}
+            </section>
+
+            {settingsOpen && (
+              <section className="panel settings-panel">
+                <h3>Ajustes</h3>
+                <div className="stack">
+                  <label>
+                    Tema
+                    <select value={state.settings.theme} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, theme: e.target.value } }))}>
+                      <option value="obsidian">Obsidiana Pura</option>
+                      <option value="midnight">Medianoche Ciber</option>
+                      <option value="sepia">Sepia Penumbra</option>
+                      <option value="grafito">Grafito Nórdico</option>
+                    </select>
+                  </label>
+                  <label>
+                    Tipografía
+                    <select value={state.settings.fontScale} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, fontScale: e.target.value } }))}>
+                      <option value="small">Pequeña</option>
+                      <option value="comfortable">Mediana</option>
+                      <option value="large">Cómoda</option>
+                      <option value="wide">Amplia</option>
+                    </select>
+                  </label>
+                  <label>
+                    Auto relaciones
+                    <input type="checkbox" checked={state.settings.autoRelations ?? true} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, autoRelations: e.target.checked } }))} />
+                  </label>
+                  <label>
+                    Guardar memoria cada N mensajes
+                    <select value={state.settings.autoMemoryEvery || 4} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, autoMemoryEvery: Number(e.target.value) } }))}>
+                      <option value={3}>3</option>
+                      <option value={4}>4</option>
+                      <option value={5}>5</option>
+                      <option value={8}>8</option>
+                    </select>
+                  </label>
+                  <label>
+                    OpenRouter API Key
+                    <input type="password" value={state.settings.openRouterApiKey || ''} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, openRouterApiKey: e.target.value } }))} />
+                  </label>
+                  <label>
+                    Modelo
+                    <select value={state.settings.openRouterModel || 'openai/gpt-4o-mini'} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, openRouterModel: e.target.value } }))}>
+                      <option value="openai/gpt-4o-mini">OpenAI GPT-4o mini</option>
+                      <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</option>
+                      <option value="meta-llama/llama-3.1-8b-instruct:free">Llama 3.1 8B Free</option>
+                      <option value="cognitivecomputations/dolphin-mixtral-8x7b">Dolphin Mixtral</option>
+                    </select>
+                  </label>
+                  <button className="button primary" onClick={() => setSettingsOpen(false)}>Guardar ajustes</button>
+                </div>
+              </section>
+            )}
+          </aside>
+        </div>
+      )}
     </div>
   );
 }
