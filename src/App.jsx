@@ -7,7 +7,7 @@ const defaultSettings = {
   autoMemoryEvery: 4,
   autoRelations: true,
   openRouterApiKey: '',
-  openRouterModel: 'openai/gpt-4o-mini',
+  openRouterModel: 'meta-llama/llama-3.1-8b-instruct',
   darkMode: true,
   aiSystemPrompt: 'No hables por el usuario. Solo responde desde el punto de vista del personaje. No describas pensamientos o decisiones del jugador. Describe lo que el personaje ve, dice y hace.'
 };
@@ -438,7 +438,7 @@ function App() {
           'X-Title': 'NEXUS'
         },
         body: JSON.stringify({
-          model: state.settings.openRouterModel || 'openai/gpt-4o-mini',
+          model: state.settings.openRouterModel || 'meta-llama/llama-3.1-8b-instruct',
           messages: [
             { role: 'system', content: system },
             { role: 'user', content: `${userMessage}` }
@@ -449,12 +449,14 @@ function App() {
       });
 
       if (!response.ok) {
-        throw new Error('OpenRouter no respondió correctamente');
+        const errorText = await response.text();
+        throw new Error(`OpenRouter error: ${response.status} - ${errorText}`);
       }
 
       const json = await response.json();
       return json?.choices?.[0]?.message?.content || 'La respuesta no llegó.';
     } catch (error) {
+      console.error(error);
       const chosen = participants[Math.floor(Math.random() * participants.length)];
       return `*${chosen.name} se queda quieto, evaluando la frase.* ${userMessage.slice(0, 120)}`;
     }
@@ -706,11 +708,11 @@ function App() {
                   </label>
                   <label>
                     Modelo
-                    <select value={state.settings.openRouterModel || 'openai/gpt-4o-mini'} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, openRouterModel: e.target.value } }))}>
-                      <option value="openai/gpt-4o-mini">OpenAI GPT-4o mini</option>
-                      <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</option>
+                    <select value={state.settings.openRouterModel || 'meta-llama/llama-3.1-8b-instruct'} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, openRouterModel: e.target.value } }))}>
+                      <option value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B Instruct</option>
+                      <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B Instruct</option>
                       <option value="meta-llama/llama-3.1-8b-instruct:free">Llama 3.1 8B Free</option>
-                      <option value="cognitivecomputations/dolphin-mixtral-8x7b">Dolphin Mixtral</option>
+                      <option value="openai/gpt-4o-mini">OpenAI GPT-4o mini</option>
                     </select>
                   </label>
                   <button className="button primary" onClick={() => setSettingsOpen(false)}>Guardar ajustes</button>
@@ -1031,11 +1033,11 @@ function App() {
                   </label>
                   <label>
                     Modelo
-                    <select value={state.settings.openRouterModel || 'openai/gpt-4o-mini'} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, openRouterModel: e.target.value } }))}>
-                      <option value="openai/gpt-4o-mini">OpenAI GPT-4o mini</option>
-                      <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</option>
+                    <select value={state.settings.openRouterModel || 'meta-llama/llama-3.1-8b-instruct'} onChange={(e) => setState((prev) => ({ ...prev, settings: { ...prev.settings, openRouterModel: e.target.value } }))}>
+                      <option value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B Instruct</option>
+                      <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B Instruct</option>
                       <option value="meta-llama/llama-3.1-8b-instruct:free">Llama 3.1 8B Free</option>
-                      <option value="cognitivecomputations/dolphin-mixtral-8x7b">Dolphin Mixtral</option>
+                      <option value="openai/gpt-4o-mini">OpenAI GPT-4o mini</option>
                     </select>
                   </label>
                   <button className="button primary" onClick={() => setSettingsOpen(false)}>Guardar ajustes</button>
