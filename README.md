@@ -1,11 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs>
-    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
-      <stop offset="0%" stop-color="#ff4d4d"/>
-      <stop offset="100%" stop-color="#8b0000"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="96" fill="#0A0A0B"/>
-  <path d="M130 120h90l120 270h-90L130 120zm160 0h92l-95 270h-92l95-270z" fill="url(#g)"/>
-  <circle cx="397" cy="104" r="36" fill="#ff7a7a" opacity="0.7"/>
-</svg>
+# NEXUS — Estudio de Rol y Psicología Profunda
+
+NEXUS es una PWA de roleplay narrativo con personajes persistentes, universos, relaciones asimétricas y memoria contextual.
+
+## Contexto completo y carga de imágenes
+
+La aplicación mantiene la conversación completa de cada sala en `localStorage`. Antes de cada petición a OpenRouter, la capa `src/nexusAiBridge.js` añade al contexto del modelo la conversación completa desde el primer mensaje, la sala, el universo, los personajes presentes, relaciones, memorias, conocimiento permitido, puntos ciegos y el estado narrativo. Así la IA no limita la continuidad a los últimos cuatro mensajes.
+
+Los campos de imagen existentes usan `accept="image/*"`. En ordenador permiten elegir archivos y en móvil abren el selector de archivos o la galería, según el dispositivo y el navegador. Las imágenes se guardan como datos locales y siguen funcionando con la PWA.
+
+## Continuidad narrativa
+
+La capa incremental de continuidad conserva la interfaz existente y añade consolidación de memorias, evolución gradual de relaciones, blind spots, estado narrativo persistente y acciones confirmadas para vaciar o eliminar salas.
